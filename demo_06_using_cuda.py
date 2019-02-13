@@ -13,32 +13,34 @@ def integer_to_categorical(x, N=None):
         N = x.max() + 1
     return np.eye(N)[x]
 
-def softmax(x):
-    return torch.softmax(x, dim=1)
-
-def matmul(W, x):
-    return torch.einsum('ij,bj->bi', (W, x))
-
 def cross_entropy(y, y_hat):
     eps = .000001
     return -(y * torch.log(y_hat + eps)).mean()
 
-num_hidden = 128
+class ClassifierNet(torch.nn.Module):
+    def __init__(self, num_hidden=128):
+        super().__init__()
+        self.fc1 = torch.nn.Linear(num_input_features, num_hidden)
+        self.fc2 = torch.nn.Linear(num_hidden, num_classes)
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = torch.sigmoid(x)
+        x = self.fc2(x)
+        x = torch.softmax(x, dim=1)
+        return x
+
 x = torch.Tensor(input_data)
 y = torch.Tensor(integer_to_categorical(input_labels))
-W1 = torch.Tensor(num_hidden, num_input_features).normal_(0, .01)
-b1 = torch.Tensor(num_hidden).normal_(0, .1)
-W2 = torch.Tensor(num_classes, num_hidden).normal_(0, .1)
-b2 = torch.Tensor(num_classes).normal_(0, .1)
+model = ClassifierNet()
+optimizer = torch.optim.SGD(model.parameters(), lr=.03)
 
-parameters = [W1, b1, W2, b2]
-for p in parameters:
-    p.requires_grad = True
-optimizer = torch.optim.Adagrad(parameters, lr=.03)
+x = x.cuda()
+y = y.cuda()
+model = model.cuda()
 
 for i in range(3000):
-    h = torch.sigmoid(matmul(W1, x) + b1)
-    y_hat = softmax(matmul(W2, h) + b2)
+    y_hat = model(x)
     loss = cross_entropy(y, y_hat)
 
     # Compute the gradient of the loss wrt. W and b
@@ -49,7 +51,7 @@ for i in range(3000):
     optimizer.zero_grad()
     print('Cross entropy loss is {:.3f}'.format(loss))
 
-predicted_labels = y_hat.argmax(dim=1).numpy()
+predicted_labels = y_hat.argmax(dim=1).cpu().numpy()
 num_correct = (predicted_labels == input_labels).sum()
 print('Classified {}/{} correct, loss {:.3f}'.format(
     num_correct, num_examples, loss))

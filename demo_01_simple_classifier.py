@@ -1,4 +1,4 @@
-# CS536: Deep Learning
+# CS535: Deep Learning
 # Introduction to PyTorch
 import numpy as np
 from sklearn import datasets
